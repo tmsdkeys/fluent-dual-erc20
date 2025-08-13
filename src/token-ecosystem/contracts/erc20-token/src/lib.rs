@@ -11,17 +11,8 @@ use fluentbase_sdk::{
     Address, Bytes, ContextReader, SharedAPI, B256, U256,
 };
 
-pub trait ERC20API {
-    fn symbol(&self) -> Bytes;
-    fn name(&self) -> Bytes;
-    fn decimals(&self) -> U256;
-    fn total_supply(&self) -> U256;
-    fn balance_of(&self, account: Address) -> U256;
-    fn transfer(&mut self, to: Address, value: U256) -> U256;
-    fn allowance(&self, owner: Address, spender: Address) -> U256;
-    fn approve(&mut self, spender: Address, value: U256) -> U256;
-    fn transfer_from(&mut self, from: Address, to: Address, value: U256) -> U256;
-}
+// Import the shared interfaces instead of defining our own
+use token_interfaces::{ITokenInitializer, IERC20};
 
 // Define the Transfer and Approval events
 sol! {
@@ -42,6 +33,13 @@ fn emit_event<SDK: SharedAPI, T: SolEvent>(sdk: &mut SDK, event: T) {
 solidity_storage! {
     mapping(Address => U256) Balance;
     mapping(Address => mapping(Address => U256)) Allowance;
+    // Add storage for token configuration
+    String TokenName;
+    String TokenSymbol;
+    U256 TokenDecimals;
+    U256 TokenTotalSupply;
+    Address TokenOwner;
+    bool IsInitialized;
 }
 
 impl Balance {
@@ -103,32 +101,68 @@ struct ERC20<SDK> {
     sdk: SDK,
 }
 
-// struct ERC20<SDK: SharedAPI> {
-//     sdk: SDK,
-// }
+// Separate deploy function for contract initialization (not part of IERC20 interface)
+impl<SDK: SharedAPI> ERC20<SDK> {
+    pub fn deploy(&mut self) {
+        let owner_address = self.sdk.context().contract_caller();
+        let owner_balance: U256 = U256::from_str_radix("1000000000000000000000000", 10).unwrap();
 
-// impl<SDK: SharedAPI> ERC20<SDK> {
-//     pub fn new(sdk: SDK) -> Self {
-//         ERC20 { sdk }
-//     }
-// }
+        let _ = Balance::add(&mut self.sdk, owner_address, owner_balance);
+    }
+
+    /// Initialize the token with custom parameters
+    /// This is called by the factory after deployment
+    pub fn initialize(
+        &mut self,
+        name: String,
+        symbol: String,
+        decimals: u8,
+        total_supply: U256,
+    ) -> bool {
+        // Check if already initialized
+        if IsInitialized::get(&self.sdk) {
+            return false;
+        }
+
+        let owner = self.sdk.context().contract_caller();
+
+        // Set token configuration
+        TokenName::set(&mut self.sdk, name);
+        TokenSymbol::set(&mut self.sdk, symbol);
+        TokenDecimals::set(&mut self.sdk, U256::from(decimals));
+        TokenTotalSupply::set(&mut self.sdk, total_supply);
+        TokenOwner::set(&mut self.sdk, owner);
+        IsInitialized::set(&mut self.sdk, true);
+
+        // Set initial balance for owner
+        let _ = Balance::add(&mut self.sdk, owner, total_supply);
+
+        true
+    }
+}
 
 #[router(mode = "solidity")]
-impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
+impl<SDK: SharedAPI> IERC20 for ERC20<SDK> {
     fn symbol(&self) -> Bytes {
-        Bytes::from("RUSTTK")
+        // Return the configured symbol from storage
+        let symbol = TokenSymbol::get(&self.sdk);
+        Bytes::from(symbol)
     }
 
     fn name(&self) -> Bytes {
-        Bytes::from("RustyToken")
+        // Return the configured name from storage
+        let name = TokenName::get(&self.sdk);
+        Bytes::from(name)
     }
 
     fn decimals(&self) -> U256 {
-        U256::from(18)
+        // Return the configured decimals from storage
+        TokenDecimals::get(&self.sdk)
     }
 
     fn total_supply(&self) -> U256 {
-        U256::from_str_radix("1000000000000000000000000", 10).unwrap()
+        // Return the configured total supply from storage
+        TokenTotalSupply::get(&self.sdk)
     }
 
     fn balance_of(&self, account: Address) -> U256 {
@@ -181,12 +215,35 @@ impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
     }
 }
 
-impl<SDK: SharedAPI> ERC20<SDK> {
-    pub fn deploy(&mut self) {
-        let owner_address = self.sdk.context().contract_caller();
-        let owner_balance: U256 = U256::from_str_radix("1000000000000000000000000", 10).unwrap();
+// Separate implementation for token initialization
+#[router(mode = "solidity")]
+impl<SDK: SharedAPI> ITokenInitializer for ERC20<SDK> {
+    fn initialize(
+        &mut self,
+        name: String,
+        symbol: String,
+        decimals: u8,
+        total_supply: U256,
+    ) -> bool {
+        // Check if already initialized
+        if IsInitialized::get(&self.sdk) {
+            return false;
+        }
 
-        let _ = Balance::add(&mut self.sdk, owner_address, owner_balance);
+        let owner = self.sdk.context().contract_caller();
+
+        // Set token configuration
+        TokenName::set(&mut self.sdk, name);
+        TokenSymbol::set(&mut self.sdk, symbol);
+        TokenDecimals::set(&mut self.sdk, U256::from(decimals));
+        TokenTotalSupply::set(&mut self.sdk, total_supply);
+        TokenOwner::set(&mut self.sdk, owner);
+        IsInitialized::set(&mut self.sdk, true);
+
+        // Set initial balance for owner
+        let _ = Balance::add(&mut self.sdk, owner, total_supply);
+
+        true
     }
 }
 

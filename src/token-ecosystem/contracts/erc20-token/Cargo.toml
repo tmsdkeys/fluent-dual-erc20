@@ -10,7 +10,8 @@ crate-type = ["cdylib"]
 alloy-sol-types = { version = "1.3.0", default-features = false }
 fluentbase-sdk = { git = "https://github.com/fluentlabs-xyz/fluentbase", tag = "v0.4.0-dev", default-features=false }
 hex-literal = "1.0.0"
-
+token-interfaces = { path = "../../interfaces" }
+shared-types = { path = "../../shared-types" }
 
 [features]
 default = ["std"]
@@ -22,8 +23,6 @@ opt-level = "z"
 lto = true
 panic = "abort"
 codegen-units = 1
-
-
 
 # Exclude from foundry workspace
 [workspace]
