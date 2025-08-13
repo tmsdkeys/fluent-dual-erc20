@@ -1,0 +1,11 @@
+[package]
+name = "token-interfaces"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fluentbase-sdk = { workspace = true }
+shared-types = { path = "../shared-types" }
+
+[lib]
+crate-type = ["lib"]
