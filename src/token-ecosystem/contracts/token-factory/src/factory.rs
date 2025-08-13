@@ -1,5 +1,8 @@
 use crate::registry::TokenRegistry;
-use fluentbase_sdk::{derive::router, Address, SharedAPI, U256};
+use fluentbase_sdk::{
+    derive::{router, Contract},
+    Address, SharedAPI, U256,
+};
 use shared_types::{TokenInfo, TokenMetadata};
 use token_interfaces::{IERC20Client, IFactory, IERC20};
 
