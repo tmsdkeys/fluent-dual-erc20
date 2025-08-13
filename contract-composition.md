@@ -163,27 +163,19 @@ token-ecosystem/
 │   │       ├── lib.rs            # Factory contract entrypoint
 │   │       ├── factory.rs        # Factory logic
 │   │       └── registry.rs       # Token tracking
-│   │
-│   └── governance/               # Governance service
-│       ├── Cargo.toml
-│       └── src/
-│           ├── lib.rs
-│           └── voting.rs
 │
 ├── interfaces/                  # Shared trait definitions
 │   ├── Cargo.toml               # lib crate, NOT cdylib
 │   └── src/
 │       ├── lib.rs
 │       ├── ierc20.rs            # ERC20 interface trait
-│       ├── ifactory.rs          # Factory interface trait
-│       └── igovernance.rs       # Governance interface trait
+│       └── ifactory.rs          # Factory interface trait
 │
 ├── shared-types/                # Common data structures
     ├── Cargo.toml               # lib crate
     └── src/
         ├── lib.rs
-        ├── token_metadata.rs
-        └── governance_types.rs
+        └── token_metadata.rs
 
 ```
 
@@ -315,6 +307,8 @@ impl<SDK: SharedAPI> TokenFactory<SDK> {
 ```
 
 ### 4. Multi-Service Composition
+
+Imagine and additional Governance contract:
 
 ```rust
 // contracts/governance/src/lib.rs - A governance contract that manages both tokens and factory

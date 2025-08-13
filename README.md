@@ -19,15 +19,13 @@ erc20-interop/
 │   └── src/
 │       ├── lib.rs
 │       ├── ierc20.rs            # ERC20 interface trait
-│       ├── ifactory.rs          # Factory interface trait
-│       └── igovernance.rs       # Governance interface trait
+│       └── ifactory.rs          # Factory interface trait
 │
 ├── shared-types/                # Common data structures (lib crate)
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
-│       ├── token_metadata.rs
-│       └── governance_types.rs
+│       └── token_metadata.rs
 │
 ├── src/
 │   ├── MyToken.sol              # Original Solidity token
@@ -50,14 +48,12 @@ This project implements a **service-oriented architecture** where:
 ### Shared Types (`shared-types/`)
 - Common data structures used across contracts
 - `TokenMetadata`: Token name, symbol, and decimals
-- `Proposal`: Governance proposal structure
 
 ### Interfaces (`interfaces/`)
 - Trait definitions with `#[client(mode = "solidity")]` attributes
 - Auto-generates client implementations for cross-contract calls
 - `IERC20`: Standard ERC20 token interface
 - `IFactory`: Factory contract interface
-- `IGovernance`: Governance contract interface
 
 ### Token Factory (`contracts/token-factory/`)
 - Factory service for creating and managing tokens
@@ -93,4 +89,4 @@ This is a **scaffolded structure** - the actual implementation logic is marked w
 2. Add proper error handling and validation
 3. Implement the token registry functionality
 4. Add tests for cross-contract interactions
-5. Consider adding more sophisticated governance features
+5. Consider adding more token management features
