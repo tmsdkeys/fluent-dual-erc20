@@ -1,6 +1,6 @@
-use fluentbase_sdk::{Address, U256};
+use fluentbase_sdk::{codec::Codec, Address, U256};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Codec, PartialEq)]
 pub struct TokenMetadata {
     pub name: String,
     pub symbol: String,
@@ -10,7 +10,7 @@ pub struct TokenMetadata {
     pub created_at: U256,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Codec, PartialEq)]
 pub struct TokenInfo {
     pub address: Address,
     pub metadata: TokenMetadata,

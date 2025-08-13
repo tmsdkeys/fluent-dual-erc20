@@ -24,21 +24,8 @@ pub trait IERC20 {
     fn allowance(&self, owner: Address, spender: Address) -> U256;
 
     #[function_id("approve(address,uint256)")]
-    fn approve(&mut self, spender: Address, value: U256) -> U256;
+    fn approve(&mut self, spender: Address, amount: U256) -> U256;
 
     #[function_id("transferFrom(address,address,uint256)")]
-    fn transfer_from(&mut self, from: Address, to: Address, value: U256) -> U256;
-}
-
-/// Separate trait for token initialization - not part of the standard ERC20 interface
-#[client(mode = "solidity")]
-pub trait ITokenInitializer {
-    #[function_id("initialize(string,string,uint8,uint256)")]
-    fn initialize(
-        &mut self,
-        name: String,
-        symbol: String,
-        decimals: u8,
-        total_supply: U256,
-    ) -> bool;
+    fn transfer_from(&mut self, from: Address, to: Address, amount: U256) -> U256;
 }

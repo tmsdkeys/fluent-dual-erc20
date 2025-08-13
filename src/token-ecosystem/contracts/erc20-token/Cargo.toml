@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 alloy-sol-types = { version = "1.3.0", default-features = false }
 fluentbase-sdk = { git = "https://github.com/fluentlabs-xyz/fluentbase", tag = "v0.4.0-dev", default-features=false }
-hex-literal = "1.0.0"
+hex-literal = { version = "1.0.0", default-features = false }
 token-interfaces = { path = "../../interfaces" }
 shared-types = { path = "../../shared-types" }
 
