@@ -1,4 +1,4 @@
-use fluentbase_sdk::{derive::client, Address, Bytes, U256};
+use fluentbase_sdk::{derive::client, U256};
 
 /// Separate trait for token initialization - not part of the standard ERC20 interface
 #[client(mode = "solidity")]
