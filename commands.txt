@@ -9,6 +9,11 @@ gblend create RustToken.wasm \
     --verifier blockscout \
     --verifier-url https://testnet.fluentscan.xyz/api/
 
+gblend verify-contract $RUST_TOKEN_ADDRESS RustToken.wasm \
+    --wasm \
+    --verifier blockscout \
+    --verifier-url https://testnet.fluentscan.xyz/api/
+
 Deploy Soldity MyToken.sol 
 
 gblend create src/MyToken.sol:MyToken \
