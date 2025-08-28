@@ -103,16 +103,6 @@ struct ERC20<SDK> {
     sdk: SDK,
 }
 
-// struct ERC20<SDK: SharedAPI> {
-//     sdk: SDK,
-// }
-
-// impl<SDK: SharedAPI> ERC20<SDK> {
-//     pub fn new(sdk: SDK) -> Self {
-//         ERC20 { sdk }
-//     }
-// }
-
 #[router(mode = "solidity")]
 impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
     fn symbol(&self) -> Bytes {
