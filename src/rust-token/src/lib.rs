@@ -3,10 +3,12 @@
 extern crate alloc;
 extern crate fluentbase_sdk;
 
-use alloc::vec::Vec;
+use alloc::{string::String, vec, vec::Vec};
 use alloy_sol_types::{sol, SolEvent};
 use fluentbase_sdk::{
     basic_entrypoint,
+    codec::Codec,
+    codec::SolidityABI,
     derive::{router, solidity_storage, Contract},
     Address, Bytes, ContextReader, SharedAPI, B256, U256,
 };
@@ -21,6 +23,13 @@ pub trait ERC20API {
     fn allowance(&self, owner: Address, spender: Address) -> U256;
     fn approve(&mut self, spender: Address, value: U256) -> U256;
     fn transfer_from(&mut self, from: Address, to: Address, value: U256) -> U256;
+}
+
+#[derive(Codec, Debug, Clone)]
+struct ERC20ConstructorArgs {
+    name: String,
+    symbol: String,
+    initial_supply: U256,
 }
 
 // Define the Transfer and Approval events
@@ -42,6 +51,9 @@ fn emit_event<SDK: SharedAPI, T: SolEvent>(sdk: &mut SDK, event: T) {
 solidity_storage! {
     mapping(Address => U256) Balance;
     mapping(Address => mapping(Address => U256)) Allowance;
+    Bytes TokenName;
+    Bytes TokenSymbol;
+    U256 InitialSupply;
 }
 
 impl Balance {
@@ -106,11 +118,11 @@ struct ERC20<SDK> {
 #[router(mode = "solidity")]
 impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
     fn symbol(&self) -> Bytes {
-        Bytes::from("RUST")
+        TokenSymbol::get(&self.sdk)
     }
 
     fn name(&self) -> Bytes {
-        Bytes::from("RustyToken")
+        TokenName::get(&self.sdk)
     }
 
     fn decimals(&self) -> U256 {
@@ -118,7 +130,7 @@ impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
     }
 
     fn total_supply(&self) -> U256 {
-        U256::from_str_radix("1000000000000000000000000", 10).unwrap()
+        InitialSupply::get(&self.sdk)
     }
 
     fn balance_of(&self, account: Address) -> U256 {
@@ -173,10 +185,22 @@ impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
 
 impl<SDK: SharedAPI> ERC20<SDK> {
     pub fn deploy(&mut self) {
-        let owner_address = self.sdk.context().contract_caller();
-        let owner_balance: U256 = U256::from_str_radix("1000000000000000000000000", 10).unwrap();
+        let input_size = self.sdk.input_size();
+        let mut input_data = vec![0u8; input_size as usize];
+        self.sdk.read(&mut input_data, 0);
 
-        let _ = Balance::add(&mut self.sdk, owner_address, owner_balance);
+        // Decode as struct
+        let args: ERC20ConstructorArgs = SolidityABI::decode(&input_data.as_slice(), 0)
+            .expect("Failed to decode constructor arguments");
+
+        // Store the constructor arguments
+        TokenName::set(&mut self.sdk, Bytes::from(args.name.into_bytes()));
+        TokenSymbol::set(&mut self.sdk, Bytes::from(args.symbol.into_bytes()));
+        InitialSupply::set(&mut self.sdk, args.initial_supply);
+
+        // Set initial balance for the deployer
+        let owner_address = self.sdk.context().contract_caller();
+        let _ = Balance::add(&mut self.sdk, owner_address, args.initial_supply);
     }
 }
 
