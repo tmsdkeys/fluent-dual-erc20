@@ -6,11 +6,12 @@ gblend script script/DeployTokens.s.sol \
     --broadcast
 
 # Deploy (and verify) RustToken.wasm
-
+export ARGS=$(cast abi-encode "constructor(string,string,uint256)" "CrustyToken" "CRUST" "2000000") && \
 gblend create RustToken.wasm \
     --rpc-url https://rpc.testnet.fluent.xyz \
     --private-key $PRIVATE_KEY \
     --broadcast \
+    --constructor-args $ARGS \
     --verify \
     --wasm \
     --verifier blockscout \
