@@ -185,12 +185,11 @@ impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
 
 impl<SDK: SharedAPI> ERC20<SDK> {
     pub fn deploy(&mut self) {
-        let input_size = self.sdk.input_size();
-        let mut input_data = vec![0u8; input_size as usize];
-        self.sdk.read(&mut input_data, 0);
+        let mut input = [0u8; 512];
+        self.sdk.read(&mut input, 0);
 
         // Decode as struct
-        let args: ERC20ConstructorArgs = SolidityABI::decode(&input_data.as_slice(), 0)
+        let args: ERC20ConstructorArgs = SolidityABI::decode(&input.as_ref(), 0)
             .expect("Failed to decode constructor arguments");
 
         // Store the constructor arguments
