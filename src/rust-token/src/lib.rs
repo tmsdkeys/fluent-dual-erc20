@@ -3,17 +3,18 @@
 extern crate alloc;
 extern crate fluentbase_sdk;
 
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use alloy_sol_types::{sol, SolEvent};
 use fluentbase_sdk::{
     basic_entrypoint,
-    derive::{router, solidity_storage, Contract},
-    Address, Bytes, ContextReader, SharedAPI, B256, U256,
+    derive::{constructor, router, Contract},
+    storage::{StorageMap, StorageString, StorageU256},
+    Address, ContextReader, SharedAPI, B256, U256,
 };
 
 pub trait ERC20API {
-    fn symbol(&self) -> Bytes;
-    fn name(&self) -> Bytes;
+    fn symbol(&self) -> String;
+    fn name(&self) -> String;
     fn decimals(&self) -> U256;
     fn total_supply(&self) -> U256;
     fn balance_of(&self, account: Address) -> U256;
@@ -39,109 +40,106 @@ fn emit_event<SDK: SharedAPI, T: SolEvent>(sdk: &mut SDK, event: T) {
     sdk.emit_log(&topics, &data);
 }
 
-solidity_storage! {
-    mapping(Address => U256) Balance;
-    mapping(Address => mapping(Address => U256)) Allowance;
-}
-
-impl Balance {
-    fn add<SDK: SharedAPI>(
-        sdk: &mut SDK,
-        address: Address,
-        amount: U256,
-    ) -> Result<(), &'static str> {
-        let current_balance = Self::get(sdk, address);
-        let new_balance = current_balance + amount;
-        Self::set(sdk, address, new_balance);
-        Ok(())
-    }
-    fn subtract<SDK: SharedAPI>(
-        sdk: &mut SDK,
-        address: Address,
-        amount: U256,
-    ) -> Result<(), &'static str> {
-        let current_balance = Self::get(sdk, address);
-        if current_balance < amount {
-            return Err("insufficient balance");
-        }
-        let new_balance = current_balance - amount;
-        Self::set(sdk, address, new_balance);
-        Ok(())
-    }
-}
-
-impl Allowance {
-    fn add<SDK: SharedAPI>(
-        sdk: &mut SDK,
-        owner: Address,
-        spender: Address,
-        amount: U256,
-    ) -> Result<(), &'static str> {
-        let current_allowance = Self::get(sdk, owner, spender);
-        let new_allowance = current_allowance + amount;
-        Self::set(sdk, owner, spender, new_allowance);
-        Ok(())
-    }
-    fn subtract<SDK: SharedAPI>(
-        sdk: &mut SDK,
-        owner: Address,
-        spender: Address,
-        amount: U256,
-    ) -> Result<(), &'static str> {
-        let current_allowance = Self::get(sdk, owner, spender);
-        if current_allowance < amount {
-            return Err("insufficient allowance");
-        }
-        let new_allowance = current_allowance - amount;
-        Self::set(sdk, owner, spender, new_allowance);
-        Ok(())
-    }
-}
-
-#[derive(Contract, Default)]
+#[derive(Contract)]
 struct ERC20<SDK> {
     sdk: SDK,
+    token_name: StorageString,
+    token_symbol: StorageString,
+    token_decimals: StorageU256,
+    total_supply: StorageU256,
+    balances: StorageMap<Address, StorageU256>,
+    allowances: StorageMap<Address, StorageMap<Address, StorageU256>>,
+}
+
+#[constructor(mode = "solidity")]
+impl<SDK: SharedAPI> ERC20<SDK> {
+    pub fn constructor(
+        &mut self,
+        name: String,
+        symbol: String,
+        decimals: U256,
+        initial_supply: U256,
+    ) {
+        self.token_name_accessor().set(&mut self.sdk, &name);
+        self.token_symbol_accessor().set(&mut self.sdk, &symbol);
+        self.token_decimals_accessor().set(&mut self.sdk, decimals);
+        self.total_supply_accessor()
+            .set(&mut self.sdk, initial_supply);
+
+        let deployer = self.sdk.context().contract_caller();
+        self.balances_accessor()
+            .entry(deployer)
+            .set(&mut self.sdk, initial_supply);
+
+        emit_event(
+            &mut self.sdk,
+            Transfer {
+                from: Address::ZERO,
+                to: deployer,
+                value: initial_supply,
+            },
+        );
+    }
 }
 
 #[router(mode = "solidity")]
 impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
-    fn symbol(&self) -> Bytes {
-        Bytes::from("RUST")
+    fn symbol(&self) -> String {
+        self.token_symbol_accessor().get(&self.sdk)
     }
 
-    fn name(&self) -> Bytes {
-        Bytes::from("RustyToken")
+    fn name(&self) -> String {
+        self.token_name_accessor().get(&self.sdk)
     }
 
     fn decimals(&self) -> U256 {
-        U256::from(18)
+        self.token_decimals_accessor().get(&self.sdk)
     }
 
     fn total_supply(&self) -> U256 {
-        U256::from_str_radix("1000000000000000000000000", 10).unwrap()
+        self.total_supply_accessor().get(&self.sdk)
     }
 
     fn balance_of(&self, account: Address) -> U256 {
-        Balance::get(&self.sdk, account)
+        self.balances_accessor().entry(account).get(&self.sdk)
     }
 
     fn transfer(&mut self, to: Address, value: U256) -> U256 {
         let from = self.sdk.context().contract_caller();
 
-        Balance::subtract(&mut self.sdk, from, value).unwrap_or_else(|err| panic!("{}", err));
-        Balance::add(&mut self.sdk, to, value).unwrap_or_else(|err| panic!("{}", err));
+        let from_balance = self.balances_accessor().entry(from).get(&self.sdk);
+        if from_balance < value {
+            panic!("insufficient balance");
+        }
+
+        self.balances_accessor()
+            .entry(from)
+            .set(&mut self.sdk, &from_balance - value);
+
+        let to_balance = self.balances_accessor().entry(to).get(&self.sdk);
+        self.balances_accessor()
+            .entry(to)
+            .set(&mut self.sdk, &to_balance + value);
 
         emit_event(&mut self.sdk, Transfer { from, to, value });
         U256::from(1)
     }
 
     fn allowance(&self, owner: Address, spender: Address) -> U256 {
-        Allowance::get(&self.sdk, owner, spender)
+        self.allowances_accessor()
+            .entry(owner)
+            .entry(spender)
+            .get(&self.sdk)
     }
 
     fn approve(&mut self, spender: Address, value: U256) -> U256 {
         let owner = self.sdk.context().contract_caller();
-        Allowance::set(&mut self.sdk, owner, spender, value);
+
+        self.allowances_accessor()
+            .entry(owner)
+            .entry(spender)
+            .set(&mut self.sdk, value);
+
         emit_event(
             &mut self.sdk,
             Approval {
@@ -156,27 +154,36 @@ impl<SDK: SharedAPI> ERC20API for ERC20<SDK> {
     fn transfer_from(&mut self, from: Address, to: Address, value: U256) -> U256 {
         let spender = self.sdk.context().contract_caller();
 
-        let current_allowance = Allowance::get(&self.sdk, from, spender);
+        let current_allowance = self
+            .allowances_accessor()
+            .entry(from)
+            .entry(spender)
+            .get(&self.sdk);
         if current_allowance < value {
             panic!("insufficient allowance");
         }
 
-        Allowance::subtract(&mut self.sdk, from, spender, value)
-            .unwrap_or_else(|err| panic!("{}", err));
-        Balance::subtract(&mut self.sdk, from, value).unwrap_or_else(|err| panic!("{}", err));
-        Balance::add(&mut self.sdk, to, value).unwrap_or_else(|err| panic!("{}", err));
+        let from_balance = self.balances_accessor().entry(from).get(&self.sdk);
+        if from_balance < value {
+            panic!("insufficient balance");
+        }
+
+        self.allowances_accessor()
+            .entry(from)
+            .entry(spender)
+            .set(&mut self.sdk, &current_allowance - value);
+
+        self.balances_accessor()
+            .entry(from)
+            .set(&mut self.sdk, &from_balance - value);
+
+        let to_balance = self.balances_accessor().entry(to).get(&self.sdk);
+        self.balances_accessor()
+            .entry(to)
+            .set(&mut self.sdk, &to_balance + value);
 
         emit_event(&mut self.sdk, Transfer { from, to, value });
         U256::from(1)
-    }
-}
-
-impl<SDK: SharedAPI> ERC20<SDK> {
-    pub fn deploy(&mut self) {
-        let owner_address = self.sdk.context().contract_caller();
-        let owner_balance: U256 = U256::from_str_radix("1000000000000000000000000", 10).unwrap();
-
-        let _ = Balance::add(&mut self.sdk, owner_address, owner_balance);
     }
 }
 
