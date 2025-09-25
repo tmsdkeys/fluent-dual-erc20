@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Script, console} from "forge-std/Script.sol";
 import {MyToken} from "../src/MyToken.sol";
 
-contract DeployRustToken is Script {
+contract DeployTokens is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -16,9 +16,21 @@ contract DeployRustToken is Script {
         bytes memory wasmBytecode = vm.getCode("out/RustToken.wasm/foundry.json");
         console.log("WASM bytecode size:", wasmBytecode.length);
         
+        // Example constructor args (adjust types/order to your constructor)
+        string memory name = "TestRustToken";
+        string memory symbol = "tRUST";
+        uint256 decimals = 18;
+        uint256 initialSupply = 1_000_000;
+
+        // Append ABI-encoded constructor args to the creation code
+        bytes memory creationByteCode = abi.encodePacked(
+            wasmBytecode,
+            abi.encode(name, symbol, decimals, initialSupply)
+        );
+
         address rustToken;
         assembly {
-            rustToken := create(0, add(wasmBytecode, 0x20), mload(wasmBytecode))
+            rustToken := create(0, add(creationByteCode, 0x20), mload(creationByteCode))
         }
         
         require(rustToken != address(0), "RustToken deployment failed");
@@ -28,9 +40,9 @@ contract DeployRustToken is Script {
         console.log("Contract Address (Rust Token):", rustToken);
 
         // Deploy Solidity ERC20 Token
-        string memory name = "SolToken";
-        string memory symbol = "SOLT";
-        uint256 initialSupply = 5_000_000; // Will be scaled by 10**decimals() in constructor
+        name = "TestSolToken";
+        symbol = "tSOLT";
+        initialSupply = 5_000_000; // Will be scaled by 10**decimals() in constructor
 
         MyToken solToken = new MyToken(name, symbol, initialSupply, deployer);
         console.log("SolToken deployed at:", address(solToken));

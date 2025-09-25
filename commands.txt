@@ -1,4 +1,4 @@
-# Deploy both Tokens combined
+# Deploy both token types via script
 
 gblend script script/DeployTokens.s.sol \
     --rpc-url https://rpc.testnet.fluent.xyz \
@@ -11,6 +11,7 @@ gblend create RustToken.wasm \
     --rpc-url https://rpc.testnet.fluent.xyz \
     --private-key $PRIVATE_KEY \
     --broadcast \
+    --constructor-args $(cast abi-encode "constructor(string,string,uint256,uint256)" "RustyToken" "RUST" 18 1000000) \
     --verify \
     --wasm \
     --verifier blockscout \
